@@ -145,6 +145,96 @@ export function sampleRUM(checkpoint, data = {}) {
   }
 }
 
+// Define an execution context for plugins
+export const executionContext = {
+  createOptimizedPicture,
+  getAllMetadata,
+  getMetadata,
+  decorateBlock,
+  decorateButtons,
+  decorateIcons,
+  loadBlock,
+  loadCSS,
+  loadScript,
+  sampleRUM,
+  toCamelCase,
+  toClassName,
+};
+
+/**
+ * Retrieves the content of metadata tags.
+ * @param {string} name The metadata name (or property)
+ * @param {Document} doc Document object to query for metadata. Defaults to the window's document
+ * @returns {string} The metadata value(s)
+ */
+export function getMetadata(name, doc = document) {
+  const attr = name && name.includes(':') ? 'property' : 'name';
+  const meta = [...doc.head.querySelectorAll(`meta[${attr}="${name}"]`)]
+    .map((m) => m.content)
+    .join(', ');
+  return meta || '';
+}
+
+/**
+ * Loads JS and CSS for a module and executes it's default export.
+ * @param {string} name The module name
+ * @param {string} jsPath The JS file to load
+ * @param {string} [cssPath] An optional CSS file to load
+ * @param {object[]} [args] Parameters to be passed to the default export when it is called
+ */
+export async function loadModule(name, jsPath, cssPath, ...args) {
+  const cssLoaded = cssPath
+    ? new Promise((resolve) => { loadCSS(cssPath, resolve); })
+    : Promise.resolve();
+  const decorationComplete = jsPath
+    ? new Promise((resolve) => {
+      (async () => {
+        let mod;
+        try {
+          mod = await import(jsPath);
+          if (mod.default) {
+            await mod.default.apply(null, args);
+          }
+        } catch (error) {
+          // eslint-disable-next-line no-console
+          console.log(`failed to load module for ${name}`, error);
+        }
+        resolve(mod);
+      })();
+    })
+    : Promise.resolve();
+  return Promise.all([cssLoaded, decorationComplete])
+    .then(([, api]) => api);
+}
+
+export function parsePluginParams(id, config) {
+  const pluginId = !config
+    ? id.split('/').splice(id.endsWith('/') ? -2 : -1, 1)[0].replace(/\.js/, '')
+    : id;
+  const pluginConfig = {
+    load: 'eager',
+    ...(typeof config === 'string' || !config
+      ? { url: (config || id).replace(/\/$/, '') }
+      : config),
+  };
+  pluginConfig.options ||= {};
+  return { id: pluginId, config: pluginConfig };
+}
+
+/**
+ * Sanitizes a string for use as class name.
+ * @param {string} name The unsanitized string
+ * @returns {string} The class name
+ */
+export function toClassName(name) {
+  return typeof name === 'string'
+    ? name
+      .toLowerCase()
+      .replace(/[^0-9a-z]/gi, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '')
+    : '';
+}
 
 
 class PluginsRegistry {
@@ -210,8 +300,6 @@ class PluginsRegistry {
   }
 }
 
-
-
 class TemplatesRegistry {
   // Register a new template
   // eslint-disable-next-line class-methods-use-this
@@ -233,8 +321,6 @@ class TemplatesRegistry {
   // eslint-disable-next-line class-methods-use-this
   includes(id) { return window.hlx.plugins.includes(id); }
 }
-
-
 
 /**
  * Setup block utils.
@@ -280,20 +366,6 @@ function init() {
 }
 
 
-/**
- * Sanitizes a string for use as class name.
- * @param {string} name The unsanitized string
- * @returns {string} The class name
- */
-export function toClassName(name) {
-  return typeof name === 'string'
-    ? name
-      .toLowerCase()
-      .replace(/[^0-9a-z]/gi, '-')
-      .replace(/-+/g, '-')
-      .replace(/^-|-$/g, '')
-    : '';
-}
 
 /**
  * Sanitizes a string for use as a js property name.
@@ -390,20 +462,6 @@ export async function loadScript(src, attrs) {
       resolve();
     }
   });
-}
-
-/**
- * Retrieves the content of metadata tags.
- * @param {string} name The metadata name (or property)
- * @param {Document} doc Document object to query for metadata. Defaults to the window's document
- * @returns {string} The metadata value(s)
- */
-export function getMetadata(name, doc = document) {
-  const attr = name && name.includes(':') ? 'property' : 'name';
-  const meta = [...doc.head.querySelectorAll(`meta[${attr}="${name}"]`)]
-    .map((m) => m.content)
-    .join(', ');
-  return meta || '';
 }
 
 /**
@@ -712,7 +770,6 @@ export function buildBlock(blockName, content) {
   return blockEl;
 }
 
-
 /**
  * Gets the configuration for the given block, and also passes
  * the config through all custom patching helpers added to the project.
@@ -732,39 +789,6 @@ export function getBlockConfig(block) {
       { blockName, cssPath, jsPath },
     );
 }
-
-/**
- * Loads JS and CSS for a module and executes it's default export.
- * @param {string} name The module name
- * @param {string} jsPath The JS file to load
- * @param {string} [cssPath] An optional CSS file to load
- * @param {object[]} [args] Parameters to be passed to the default export when it is called
- */
-export async function loadModule(name, jsPath, cssPath, ...args) {
-  const cssLoaded = cssPath
-    ? new Promise((resolve) => { loadCSS(cssPath, resolve); })
-    : Promise.resolve();
-  const decorationComplete = jsPath
-    ? new Promise((resolve) => {
-      (async () => {
-        let mod;
-        try {
-          mod = await import(jsPath);
-          if (mod.default) {
-            await mod.default.apply(null, args);
-          }
-        } catch (error) {
-          // eslint-disable-next-line no-console
-          console.log(`failed to load module for ${name}`, error);
-        }
-        resolve(mod);
-      })();
-    })
-    : Promise.resolve();
-  return Promise.all([cssLoaded, decorationComplete])
-    .then(([, api]) => api);
-}
-
 
 /**
  * Loads JS and CSS for a block.
@@ -906,35 +930,4 @@ export function getAllMetadata(scope) {
       res[id] = meta.getAttribute('content');
       return res;
     }, {});
-}
-
-
-// Define an execution context for plugins
-export const executionContext = {
-  createOptimizedPicture,
-  getAllMetadata,
-  getMetadata,
-  decorateBlock,
-  decorateButtons,
-  decorateIcons,
-  loadBlock,
-  loadCSS,
-  loadScript,
-  sampleRUM,
-  toCamelCase,
-  toClassName,
-};
-
-export function parsePluginParams(id, config) {
-  const pluginId = !config
-    ? id.split('/').splice(id.endsWith('/') ? -2 : -1, 1)[0].replace(/\.js/, '')
-    : id;
-  const pluginConfig = {
-    load: 'eager',
-    ...(typeof config === 'string' || !config
-      ? { url: (config || id).replace(/\/$/, '') }
-      : config),
-  };
-  pluginConfig.options ||= {};
-  return { id: pluginId, config: pluginConfig };
 }
