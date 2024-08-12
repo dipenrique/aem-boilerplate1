@@ -20,9 +20,8 @@ const LCP_BLOCKS = []; // add your LCP blocks to the list
 // Define the custom audiences mapping for experience decisioning
 const AUDIENCES = {
   mobile: () => window.innerWidth < 600,
-  desktop: () => window.innerWidth >= 600
+  desktop: () => window.innerWidth >= 600,
 };
-
 
 window.hlx.plugins.add('experience-decisioning', {
   condition: () => getMetadata('experiment')
@@ -137,7 +136,6 @@ async function loadLazy(doc) {
   sampleRUM.observe(main.querySelectorAll('picture > img'));
 
   window.hlx.plugins.run('loadLazy');
-
 }
 
 /**
@@ -149,7 +147,7 @@ function loadDelayed() {
   window.setTimeout(() => {
     window.hlx.plugins.load('delayed');
     window.hlx.plugins.run('loadDelayed');
-    return import('./delayed.js')
+    return import('./delayed.js');
   }, 3000);
   // load anything that can be postponed to the latest here
 }
