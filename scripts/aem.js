@@ -892,33 +892,6 @@ export async function waitForLCP(lcpBlocks) {
 
 init();
 
-export {
-  buildBlock,
-  createOptimizedPicture,
-  decorateBlock,
-  decorateBlocks,
-  decorateButtons,
-  decorateIcons,
-  decorateSections,
-  decorateTemplateAndTheme,
-  fetchPlaceholders,
-  getMetadata,
-  loadBlock,
-  loadBlocks,
-  loadCSS,
-  loadFooter,
-  loadHeader,
-  loadScript,
-  readBlockConfig,
-  sampleRUM,
-  setup,
-  toCamelCase,
-  toClassName,
-  updateSectionsStatus,
-  waitForLCP,
-  wrapTextNodes,
-};
-
 /**
  * Gets all the metadata elements that are in the given scope.
  * @param {String} scope The scope/prefix for the metadata
